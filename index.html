@@ -1303,6 +1303,42 @@ h3 .secno { color: var(--orange-ink, #B4471C); margin-right: 2px; }
   .ex.rl .rl-qs .ex-foot .btn { padding: 5px 7px; font-size: .78em; }
   .rl-view button { font-size: .8em; }
 }
+
+/* ---------- Sheet 9 pick mode: answer buttons, instant mark + explanation (18/11/2026) ---------- */
+.pick-mode select.pick-src { display: none !important; }
+.pick-mode .keytip { display: none; }
+.pick-auto .btn.check { display: none; }
+.pick-blank { display: inline-block; min-width: 4.5em; margin: 0 3px; padding: 1px 8px; border: 0; border-bottom: 2px dashed var(--purple); background: transparent; color: var(--purple); font: inherit; font-weight: 600; text-align: center; cursor: default; }
+.ex-body .cloze .pick-blank, .ex-body p .pick-blank { cursor: pointer; border: 1.5px dashed var(--purple); border-radius: 8px; background: #F6F1FB; font-size: .92em; }
+.pick-blank.filled { border-style: solid; cursor: default; }
+.pick-blank.ok { color: #1E7B3A; border-color: #1E7B3A; background: #E6F4EA; }
+.pick-blank.bad { color: #B42318; border-color: #B42318; background: #FDECEA; text-decoration: line-through; }
+.pick-blank.key { color: #1E7B3A; border-color: #1E7B3A; background: #E6F4EA; }
+.pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; flex-basis: 100%; width: 100%; }
+.pick.gap { display: inline-flex; width: auto; margin: 4px 4px 4px 0; vertical-align: middle; }
+.pick.gap[hidden] { display: none; }
+.pick.long { flex-direction: column; }
+.pk { font: inherit; font-size: .95em; line-height: 1.35; padding: 5px 12px; border-radius: 999px; border: 1.5px solid #CFC3E0; background: #fff; color: inherit; cursor: pointer; text-align: left; transition: background .12s, border-color .12s; }
+.pick.long .pk { border-radius: 10px; display: flex; gap: 8px; align-items: flex-start; width: 100%; }
+.pk-l { flex: none; font-weight: 700; color: var(--purple); min-width: 1.1em; }
+.pk:hover:not(:disabled) { border-color: var(--purple); background: #F6F1FB; }
+.pk:disabled { cursor: default; opacity: .55; }
+.pk.right { opacity: 1; border-color: #1E7B3A; background: #E6F4EA; color: #14532D; font-weight: 600; }
+.pk.ok { opacity: 1; border-color: #1E7B3A; background: #1E7B3A; color: #fff; font-weight: 700; }
+.pk.ok .pk-l { color: #fff; }
+.pk.bad { opacity: 1; border-color: #B42318; background: #FDECEA; color: #B42318; text-decoration: line-through; }
+.pick-v { display: inline-block; margin: 4px 0 2px; padding: 2px 10px; border-radius: 999px; font-family: var(--font-cond); font-weight: 700; font-size: .9em; }
+.pick-v.ok { background: #E6F4EA; color: #1E7B3A; }
+.pick-v.bad, .pick-v.key { background: #FDECEA; color: #B42318; }
+.pick-v.key { background: #EEF2FF; color: #3730A3; }
+.pick-v b { margin-left: 2px; }
+.it > .pick-v { display: table; }
+.evid.odd .ev.pk-right { background: #E6F4EA; border-color: #1E7B3A; color: #14532D; font-weight: 700; }
+.evid.odd .ev.pk-ok { background: #1E7B3A !important; border-color: #1E7B3A !important; color: #fff !important; }
+.evid.odd .ev.pk-bad { background: #B42318 !important; border-color: #B42318 !important; color: #fff !important; text-decoration: line-through; }
+.evid.odd.picked .ev { cursor: default; }
+.ex-body .pick-blank.filled { border-style: solid; cursor: default; }
+.errs > .pick-v { grid-column: 2; justify-self: start; margin-top: 2px; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Condensed:wght@500;700&family=Roboto+Mono:wght@500;700&display=swap">
@@ -3681,6 +3717,98 @@ h3 .secno { color: var(--orange-ink, #B4471C); margin-right: 2px; }
     ex.addEventListener('click', e => { if (e.target.closest('.loc-btn') && ex.classList.contains('v-qs')) setView('both'); }, true);
     /* keep the work area in view when a phone user starts on it */
     ex.querySelector('.rl-bar').addEventListener('click', e => { if (e.target.closest('.rl-seg')) fit(); });
+  });
+})();
+
+(function () {
+  const sheet = document.getElementById('practice'); if (!sheet) return;
+  const vi = (document.documentElement.lang || '').indexOf('vi') === 0;
+  const T = vi ? { ok: '✓ Đúng', no: '✗ Chưa đúng · đáp án: ', tap: 'chọn', key: 'Đáp án: ' }
+               : { ok: '✓ Correct', no: '✗ Not quite · answer: ', tap: 'choose', key: 'Answer: ' };
+  const L = 'ABCDEF';
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  sheet.querySelectorAll('.ex').forEach(ex => {
+    const units = [];
+    const score = ex.querySelector('[data-score]'), chk = ex.querySelector('.btn.check');
+    const tally = () => {
+      const done = units.filter(u => u.done), ok = done.filter(u => u.ok).length;
+      if (score && ex.dataset.key !== '1') { score.textContent = ok + '/' + units.length; score.classList.toggle('full', ok === units.length && done.length === units.length); }
+      if (done.length === units.length && chk && ex.dataset.key !== '1' && ex.classList.contains('pick-auto')) chk.click();
+    };
+    const verdict = (u, ok, keyTxt) => {
+      u.v.hidden = false; u.v.className = 'pick-v ' + (ok ? 'ok' : 'bad');
+      u.v.textContent = ok ? T.ok : T.no; if (!ok) u.v.appendChild(mk('b', '', keyTxt));
+      if (u.why) u.why.hidden = false;
+    };
+    ex.querySelectorAll('select.ans[data-a]').forEach(s => {
+      const key = s.dataset.a.split('|')[0];
+      const opts = [...s.options].filter(o => o.value !== '' && o.textContent !== '…' && o.textContent !== '#').map(o => o.textContent);
+      const it = s.closest('.it');
+      const inGap = !it;
+      const long = s.classList.contains('w') || opts.some(o => o.length > 28);
+      const why = it ? it.querySelector('.why1') : (s.nextElementSibling && s.nextElementSibling.classList.contains('why-in') ? s.nextElementSibling : null);
+      const blank = mk('button', 'pick-blank', inGap ? '▾ ' + T.tap : '  '); blank.type = 'button';
+      const row = mk('span', 'pick' + (long ? ' long' : '') + (inGap ? ' gap' : ''));
+      const v = mk('span', 'pick-v'); v.hidden = true;
+      const u = { done: false, ok: false, why, v, row, blank, s, key };
+      opts.forEach((t, i) => {
+        const b = mk('button', 'pk'); b.type = 'button'; b.dataset.v = t;
+        if (long) b.appendChild(mk('span', 'pk-l', L[i]));
+        b.appendChild(document.createTextNode(t));
+        b.addEventListener('click', () => {
+          if (u.done || ex.dataset.key === '1') return;
+          s.value = t; s.dispatchEvent(new Event('change', { bubbles: true }));
+          u.done = true; u.ok = t === key || s.dataset.a.split('|').includes(t);
+          row.querySelectorAll('.pk').forEach(x => { x.disabled = true; if (x.dataset.v === key) x.classList.add('right'); });
+          b.classList.add(u.ok ? 'ok' : 'bad');
+          blank.textContent = t; blank.className = 'pick-blank filled ' + (u.ok ? 'ok' : 'bad'); blank.disabled = true;
+          if (inGap) row.hidden = true;
+          verdict(u, u.ok, key);
+          tally();
+          if (inGap) { const nx = units.find(w => !w.done); if (nx) { units.forEach(w => { if (w.row !== nx.row && !w.done) w.row.hidden = true; }); nx.row.hidden = false; } }
+        });
+        row.appendChild(b);
+      });
+      s.classList.add('pick-src'); s.after(blank);
+      if (inGap) { row.hidden = units.some(w => !w.done && !w.row.hidden); blank.after(row); row.after(v); blank.addEventListener('click', () => { units.forEach(w => { if (!w.done) w.row.hidden = w !== u; }); }); }
+      else { const q = it.querySelector('.q') || s.parentNode; q.after(row); row.after(v); }
+      units.push(u);
+    });
+    ex.querySelectorAll('.evid.odd[data-a]').forEach(e => {
+      let why = e.nextElementSibling; while (why && !why.classList.contains('why1') && !why.classList.contains('evid')) why = why.nextElementSibling;
+      if (why && !why.classList.contains('why1')) why = null;
+      const v = mk('span', 'pick-v'); v.hidden = true; e.after(v);
+      const u = { done: false, ok: false, why, v, odd: e };
+      e.addEventListener('click', ev => {
+        const c = ev.target.closest('.ev'); if (!c || !ev.isTrusted) return;
+        if (u.done || ex.dataset.key === '1') { ev.stopImmediatePropagation(); ev.preventDefault(); return; }
+        setTimeout(() => {
+          u.done = true; u.ok = c.dataset.k === e.dataset.a;
+          const k = e.querySelector('.ev[data-k="' + e.dataset.a + '"]');
+          if (k) k.classList.add('pk-right'); c.classList.add(u.ok ? 'pk-ok' : 'pk-bad'); e.classList.add('picked');
+          verdict(u, u.ok, k ? k.textContent : '');
+          tally();
+        }, 0);
+      }, true);
+      units.push(u);
+    });
+    if (!units.length) return;
+    ex.classList.add('pick-mode');
+    if (!ex.querySelector('input.ans:not([readonly]), textarea.ans, .mcq, .builder, .bins, .gaps, .evid:not(.odd)')) ex.classList.add('pick-auto');
+    const rev = ex.querySelector('.btn.reveal'), rst = ex.querySelector('.btn.reset');
+    if (rev) rev.addEventListener('click', () => units.forEach(u => {
+      if (u.row) { u.row.hidden = false; u.row.querySelectorAll('.pk').forEach(x => { x.disabled = true; if (x.dataset.v === u.key) x.classList.add('right'); });
+        if (!u.done) { u.blank.textContent = u.key; u.blank.className = 'pick-blank filled key'; u.blank.disabled = true; } }
+      if (u.odd && !u.done) { const k = u.odd.querySelector('.ev[data-k="' + u.odd.dataset.a + '"]'); if (k) k.classList.add('pk-right'); }
+      if (!u.done) { u.v.hidden = false; u.v.className = 'pick-v key'; u.v.textContent = T.key; u.v.appendChild(mk('b', '', u.row ? u.key : (u.odd.querySelector('.ev[data-k="' + u.odd.dataset.a + '"]') || {}).textContent || '')); }
+    }));
+    if (rst) rst.addEventListener('click', () => { units.forEach((u, i) => {
+      u.done = false; u.ok = false; u.v.hidden = true;
+      if (u.row) { u.row.querySelectorAll('.pk').forEach(x => { x.disabled = false; x.classList.remove('ok', 'bad', 'right'); });
+        u.blank.disabled = false; u.blank.className = 'pick-blank'; u.blank.textContent = u.row.classList.contains('gap') ? '▾ ' + T.tap : '  ';
+        if (u.row.classList.contains('gap')) u.row.hidden = i !== units.findIndex(w => w.row && w.row.classList.contains('gap')); }
+      if (u.odd) { u.odd.classList.remove('picked'); u.odd.querySelectorAll('.ev').forEach(x => x.classList.remove('pk-ok', 'pk-bad', 'pk-right')); }
+    }); if (score) { score.textContent = ''; score.classList.remove('full'); } });
   });
 })();
 </script>
